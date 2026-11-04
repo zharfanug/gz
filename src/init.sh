@@ -5,6 +5,7 @@
 
 GZ_INIT_GITIGNORE_ENTRIES='.*/
 !.gitignore
+!.gitmodules
 .env
 *.code-workspace'
 

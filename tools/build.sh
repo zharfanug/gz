@@ -16,9 +16,11 @@ print_usage() {
   printf '%s\n' "Usage: $SCRIPT_NAME [OPTION]"
   printf '\n'
   printf '%s\n' "  --help          show help"
-  printf '%s\n' "  --release       bump version and build gz at the repo root, commit, tag, push"
+  printf '%s\n' "  --release       bump version, commit, tag, push, and upload the built"
+  printf '%s\n' "                  binary as an asset on the GitHub release 'latest'"
   printf '\n'
-  printf '%s\n' "With no option, builds ${BUILD_DIR}/${BUILD_FILE}."
+  printf '%s\n' "With no option, builds ${BUILD_DIR}/${BUILD_FILE}. The binary itself is"
+  printf '%s\n' "never committed — only ${BUILD_DIR}/ is used, and it's gitignored."
 }
 
 # cat concatenates src/*.sh back-to-back with nothing in between, so a file
@@ -52,12 +54,40 @@ build_gz() {
   printf 'Build complete: %s/%s\n' "$BUILD_DIR" "$BUILD_FILE"
 }
 
-# Commits VERSION + the built executable (using gz's own `update`
-# subcommand, by running the just-built binary against its own repo rather
-# than duplicating git calls here), moves the "latest" tag, and pushes.
+# Commits VERSION (using gz's own `update` subcommand, by running the
+# just-built binary against its own repo rather than duplicating git calls
+# here), moves the "latest" tag, and pushes. The binary itself is never
+# committed — see release_upload_asset below.
 release_publish() {
   _ver=$(cat VERSION)
-  "./${BUILD_FILE}" update -y "$_ver"
+  "${BUILD_DIR}/${BUILD_FILE}" update -y "$_ver"
+}
+
+# Uploads the built binary as an asset on the GitHub release tracking the
+# "latest" tag. Requires the `gh` CLI and an authenticated session; skipped
+# with a warning (never fails the release) if `gh` is missing, there's no
+# origin remote, or the upload itself fails.
+release_upload_asset() {
+  if ! command -v gh >/dev/null 2>&1; then
+    printf 'WARN: gh CLI not found, skipping GitHub release upload\n' >&2
+    printf 'WARN: upload manually: gh release upload latest %s/%s --clobber\n' "$BUILD_DIR" "$BUILD_FILE" >&2
+    return 0
+  fi
+
+  if ! git remote get-url origin >/dev/null 2>&1; then
+    printf 'No origin remote found, skipping GitHub release upload\n'
+    return 0
+  fi
+
+  if gh release view latest >/dev/null 2>&1; then
+    printf 'Uploading %s/%s to GitHub release "latest"\n' "$BUILD_DIR" "$BUILD_FILE"
+    gh release upload latest "${BUILD_DIR}/${BUILD_FILE}" --clobber \
+      || printf 'WARN: gh release upload failed\n' >&2
+  else
+    printf 'Creating GitHub release "latest"\n'
+    gh release create latest "${BUILD_DIR}/${BUILD_FILE}" --title latest --notes "Automated build" \
+      || printf 'WARN: gh release create failed\n' >&2
+  fi
 }
 
 for _arg do
@@ -79,11 +109,11 @@ done
 if [ "$RELEASE" = "true" ]; then
   printf 'Release build: bumping version\n'
   ./tools/update.sh
-  BUILD_DIR="$WORKSPACE_DIR"
 fi
 
 build_gz
 
 if [ "$RELEASE" = "true" ]; then
   release_publish
+  release_upload_asset
 fi

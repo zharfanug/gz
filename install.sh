@@ -30,9 +30,10 @@ require_cmd() {
   fi
 }
 
-# Repo URL
+# Repo URL — the binary ships as a GitHub release asset on the "latest"
+# tag, not as a file committed to the repo.
 REPO="zharfanug/gz"
-GZ_URL="https://raw.githubusercontent.com/${REPO}/latest/gz"
+GZ_URL="https://github.com/${REPO}/releases/download/latest/gz"
 
 BIN_FILE="gz"
 
@@ -63,8 +64,16 @@ for _c in id mkdir chmod cp; do
   require_cmd "$_c"
 done
 
+if [ -d "./${BIN_FILE}" ]; then
+  log_error "./${BIN_FILE} already exists as a directory in $(pwd)"
+  log_error "Run this installer from a different directory"
+  exit 1
+fi
+
+_tmp=$(mktemp)
 log "Downloading ${GZ_URL}"
-download "$GZ_URL" "./${BIN_FILE}" || exit 1
+download "$GZ_URL" "$_tmp" || { rm -f "$_tmp"; exit 1; }
+mv "$_tmp" "./${BIN_FILE}"
 chmod +x "./${BIN_FILE}"
 log "Downloaded to ./${BIN_FILE}"
 
