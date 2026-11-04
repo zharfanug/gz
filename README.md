@@ -99,14 +99,20 @@ git clone https://github.com/zharfanug/gz.git
 cd gz
 ./tools/build.sh            # build dev-build/gz
 dev-build/gz --help
-./tools/build.sh --release  # bump VERSION, build gz at the repo root,
-                             # commit, tag "latest", and push (if a
-                             # remote is configured)
+./tools/build.sh --release  # bump VERSION, build dev-build/gz, commit,
+                             # tag "latest", push (if a remote is
+                             # configured), then upload dev-build/gz as
+                             # a release asset on the "latest" tag
 ```
 
 `VERSION` follows `MAJOR.MINOR.PATCH_TIMESTAMP` (e.g. `0.1.0_202611041408`);
 `tools/update.sh` bumps it, `tools/build.sh --release` calls that
-automatically.
+automatically. The binary is never committed — it's built fresh into the
+gitignored `dev-build/` and shipped only as a release asset, which is why
+`--release` additionally requires the [GitHub CLI](https://cli.github.com)
+(`gh`), authenticated via `gh auth login`. Without it, `--release` still
+commits/tags/pushes `VERSION` as normal, but warns and skips the asset
+upload — run the command it prints manually, or install `gh` and re-run.
 
 ## License
 
