@@ -1,5 +1,6 @@
 .*/
 !.gitignore
+!.gitmodules
 .env
 *.code-workspace
 dev-build/
