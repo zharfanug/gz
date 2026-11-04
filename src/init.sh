@@ -43,12 +43,31 @@ cmd_init() {
   fi
 
   if [ -f .gitignore ]; then
-    log "Adding default entries to top of existing .gitignore"
-    local _tmp
-    _tmp=$(mktemp)
-    printf '%s\n' "$GZ_INIT_GITIGNORE_ENTRIES" >"$_tmp"
-    cat .gitignore >>"$_tmp"
-    mv "$_tmp" .gitignore
+    local _missing=""
+    local _line
+    while IFS= read -r _line; do
+      if ! grep -qxF "$_line" .gitignore; then
+        if [ -n "$_missing" ]; then
+          _missing="${_missing}
+${_line}"
+        else
+          _missing="$_line"
+        fi
+      fi
+    done <<EOF
+$GZ_INIT_GITIGNORE_ENTRIES
+EOF
+
+    if [ -z "$_missing" ]; then
+      log ".gitignore already has the default entries, skipping"
+    else
+      log "Adding missing default entries to top of .gitignore"
+      local _tmp
+      _tmp=$(mktemp)
+      printf '%s\n' "$_missing" >"$_tmp"
+      cat .gitignore >>"$_tmp"
+      mv "$_tmp" .gitignore
+    fi
   else
     log "Creating .gitignore"
     printf '%s\n' "$GZ_INIT_GITIGNORE_ENTRIES" >.gitignore
